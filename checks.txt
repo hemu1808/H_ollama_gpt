@@ -1,0 +1,505 @@
+resume 
+Option 1: Full Stack / AI Engineer Focus (Best Overall)
+Architected an Advanced RAG System: Built a production-ready Retrieval-Augmented Generation platform using FastAPI, Celery, and Redis, capable of asynchronous PDF ingestion and semantic processing.
+
+Implemented Hybrid Search & Re-ranking: Engineered a retrieval pipeline combining ChromaDB (vector search) and BM25 (keyword search) using Reciprocal Rank Fusion (RRF), followed by Cross-Encoder re-ranking to maximize context relevance.
+
+Optimized LLM Workflows with DSPy: Integrated DSPy to compile and optimize prompt signatures, enabling a "Deep Think" mode with Chain-of-Thought (CoT) reasoning and self-refining query rewriting.
+
+Developed Modern React Frontend: Designed a high-performance "Linear-style" UI using React, TypeScript, and Tailwind CSS, featuring real-time Server-Sent Events (SSE) streaming, glassmorphism effects, and Framer Motion animations.
+
+Option 2: Backend & System Architecture Focus
+Scalable Async Pipeline: Designed an event-driven architecture using Celery and Redis to handle heavy document processing tasks (OCR, chunking) off the main thread, ensuring non-blocking API performance.
+
+Advanced Data Ingestion: Developed a Semantic Chunking strategy that uses embedding similarity to identify logical breakpoints in text, improving retrieval accuracy over standard fixed-size chunking.
+
+Robust Security & Observability: Implemented Prometheus metrics and OpenTelemetry tracing for real-time monitoring of query latency and token usage, alongside rate limiting and input sanitization layers.
+
+Performance Optimization: Integrated Redis caching for embeddings and a custom circuit breaker pattern to ensure system resilience and reduce redundant computations.
+
+Option 3: Frontend / UX Focus
+Interactive AI Dashboard: Built a responsive chat interface with React and TypeScript, implementing complex features like auto-resizing input capsules, real-time message streaming, and markdown rendering with syntax highlighting.
+
+High-End UI Engineering: Crafted a "Linear-inspired" aesthetic using Tailwind CSS, utilizing CSS transforms, backdrops filters (glassmorphism), and custom canvas animations (ParticleBackground) for a premium user experience.
+
+State Management & UX: Managed complex client-side state for chat sessions, file uploads, and "Deep Think" mode toggles, creating a seamless, app-like experience without page reloads.
+
+Key Technologies to List:
+Languages: Python, TypeScript, JavaScript
+
+Backend: FastAPI, Uvicorn, Celery, Redis
+
+Frontend: React, Tailwind CSS, Framer Motion, Lucide React
+
+AI/ML: DSPy, Ollama, LangChain, ChromaDB, Sentence Transformers (Cross-Encoder), Rank-BM25
+
+DevOps/Tools: Docker, Prometheus, OpenTelemetry
+---------------------------------------------------------------------------------------------------
+- [ ] **Authentication & Authorization**
+  - [ ] Implement JWT token-based auth
+  - [ ] Add API key management for external clients
+  - [ ] Role-based access control (admin, user, readonly)
+  - [ ] Rate limiting per user/API key (not just IP)
+
+- [ ] **Input Validation**
+  - [ ] Sanitize all user inputs (queries, file names)
+  - [ ] Validate file types with magic bytes (not just extension)
+  - [ ] Scan uploads for malware
+  - [ ] Implement CSRF protection
+  - [ ] Add Content Security Policy headers
+
+- [ ] **CORS & Network Security**
+  - [ ] Configure specific allowed origins (no wildcards)
+  - [ ] Use HTTPS only in production
+  - [ ] Implement API versioning (/v1/, /v2/)
+  - [ ] Add request signing for sensitive operations
+
+- [ ] **Data Protection**
+  - [ ] Encrypt sensitive data at rest
+  - [ ] Encrypt data in transit (TLS 1.3)
+  - [ ] Implement data retention policies
+  - [ ] Add GDPR compliance features (data deletion, export)
+
+## 🏗️ Architecture
+
+- [ ] **Scalability**
+  - [ ] Set up Celery workers for async processing
+  - [ ] Add load balancer (Nginx, Traefik)
+
+- [ ] **High Availability**
+  - [ ] Deploy multiple API server instances
+  - [ ] Set up database replication
+  - [ ] Implement health checks and readiness probes
+  - [ ] Configure automatic failover
+  - [ ] Set up circuit breakers for external services
+
+- [ ] **Performance**
+  - [ ] Implement Redis caching layer
+  - [ ] Use connection pooling for all databases
+  - [ ] Enable query result caching
+  - [ ] Optimize embedding generation (batch processing)
+  - [ ] Use CDN for frontend assets
+
+## 📊 Observability
+
+- [ ] **Logging**
+  - [ ] Structured logging with correlation IDs
+  - [ ] Log aggregation (ELK Stack, Datadog)
+  - [ ] Log retention policies
+  - [ ] PII redaction in logs
+  - [ ] Alert on error rate spikes
+
+- [ ] **Metrics**
+  - [ ] Request latency (p50, p95, p99)
+  - [ ] Error rates and status codes
+  - [ ] RAG pipeline performance metrics
+  - [ ] Resource utilization (CPU, memory, disk)
+  - [ ] Custom business metrics
+
+- [ ] **Tracing**
+  - [ ] Distributed tracing (Jaeger, Zipkin)
+  - [ ] Request flow visualization
+  - [ ] Dependency mapping
+  - [ ] Performance bottleneck identification
+
+- [ ] **Alerting**
+  - [ ] Set up PagerDuty/OpsGenie
+  - [ ] Define SLOs and SLIs
+  - [ ] Error rate alerts
+  - [ ] Latency threshold alerts
+  - [ ] Resource exhaustion alerts
+
+## 🧪 Testing
+
+- [ ] **Unit Tests**
+  - [ ] Test coverage > 80%
+  - [ ] Test all utility functions
+  - [ ] Test data models and validators
+  - [ ] Mock external dependencies
+
+- [ ] **Integration Tests**
+  - [ ] End-to-end API tests
+  - [ ] Database integration tests
+  - [ ] LLM integration tests
+  - [ ] File upload/processing tests
+
+- [ ] **Load Testing**
+  - [ ] Use Locust or k6 for load tests
+  - [ ] Test with 100+ concurrent users
+  - [ ] Identify breaking points
+  - [ ] Test document processing under load
+
+- [ ] **Security Testing**
+  - [ ] OWASP Top 10 vulnerability scan
+  - [ ] Penetration testing
+  - [ ] Dependency vulnerability scanning
+  - [ ] SQL injection testing
+
+## 🗄️ Data Management
+
+- [ ] **Vector Store**
+  - [ ] Use persistent ChromaDB or Pinecone/Weaviate
+  - [ ] Implement backup and restore procedures
+  - [ ] Set up monitoring for index health
+  - [ ] Implement collection versioning
+
+- [ ] **Metadata Store**
+  - [ ] Add PostgreSQL for user/document metadata
+  - [ ] Track document ownership and permissions
+  - [ ] Store conversation history
+  - [ ] Implement audit logs
+
+- [ ] **Caching**
+  - [ ] Deploy Redis cluster
+  - [ ] Cache embeddings (2-hour TTL)
+  - [ ] Cache query results (1-hour TTL)
+  - [ ] Implement cache warming strategies
+
+- [ ] **Backups**
+  - [ ] Automated daily backups
+  - [ ] Point-in-time recovery capability
+  - [ ] Test restore procedures monthly
+  - [ ] Off-site backup storage
+
+## 🚀 Deployment
+
+- [ ] **Infrastructure as Code**
+  - [ ] Terraform or CloudFormation scripts
+  - [ ] Version control for infrastructure
+  - [ ] Separate dev/staging/prod environments
+  - [ ] Automated deployment pipelines
+
+- [ ] **CI/CD**
+  - [ ] GitHub Actions or GitLab CI
+  - [ ] Automated testing on PR
+  - [ ] Automatic deployments to staging
+  - [ ] Manual approval for production
+  - [ ] Rollback procedures documented
+
+- [ ] **Configuration Management**
+  - [ ] Use environment variables for secrets
+  - [ ] Integrate with Vault or AWS Secrets Manager
+  - [ ] Separate configs per environment
+  - [ ] Never commit secrets to git
+
+- [ ] **Monitoring After Deploy**
+  - [ ] Canary deployments (10% traffic first)
+  - [ ] Blue-green deployment strategy
+  - [ ] Monitor key metrics for 24h after deploy
+  - [ ] Automated rollback on error spikes
+
+## 🎯 Features
+
+- [ ] **Core RAG Improvements**
+  - [ ] Enable BM25 hybrid search
+  - [ ] Enable cross-encoder reranking
+  - [ ] Implement query expansion
+  - [ ] Add multi-query retrieval
+  - [ ] Implement parent-child chunking
+
+- [ ] **User Experience**
+  - [ ] WebSocket streaming for real-time responses
+  - [ ] Conversation history persistence
+  - [ ] Export chat to PDF/Markdown
+  - [ ] Document preview before upload
+  - [ ] Progress bars for long operations
+
+- [ ] **Admin Features**
+  - [ ] Admin dashboard for system monitoring
+  - [ ] User management interface
+  - [ ] Document management interface
+  - [ ] Analytics and usage reports
+  - [ ] A/B testing framework
+
+## 📱 Frontend
+
+- [ ] **Production Build**
+  - [ ] Optimize bundle size (< 500KB)
+  - [ ] Enable code splitting
+  - [ ] Implement lazy loading
+  - [ ] Add service worker for offline support
+  - [ ] Optimize images and assets
+
+- [ ] **Error Handling**
+  - [ ] Error boundaries for all components
+  - [ ] Graceful degradation
+  - [ ] User-friendly error messages
+  - [ ] Retry mechanisms for failed requests
+
+- [ ] **Accessibility**
+  - [ ] WCAG 2.1 AA compliance
+  - [ ] Keyboard navigation
+  - [ ] Screen reader support
+  - [ ] High contrast mode
+
+- [ ] **Mobile Responsiveness**
+  - [ ] Test on iOS and Android
+  - [ ] Touch-friendly UI elements
+  - [ ] Mobile-optimized layouts
+  - [ ] Responsive file upload
+
+## 📚 Documentation
+
+- [ ] **API Documentation**
+  - [ ] OpenAPI/Swagger docs (already have /docs)
+  - [ ] Example requests and responses
+  - [ ] Authentication guide
+  - [ ] Error code reference
+
+- [ ] **User Documentation**
+  - [ ] User guide with screenshots
+  - [ ] FAQ section
+  - [ ] Video tutorials
+  - [ ] Troubleshooting guide
+
+- [ ] **Developer Documentation**
+  - [ ] Architecture diagrams
+  - [ ] Setup instructions (local dev)
+  - [ ] Contributing guidelines
+  - [ ] Code style guide
+
+- [ ] **Operations Documentation**
+  - [ ] Deployment procedures
+  - [ ] Monitoring and alerting guide
+  - [ ] Incident response playbook
+  - [ ] Backup and restore procedures
+
+## 🔄 Maintenance
+
+- [ ] **Dependency Management**
+  - [ ] Automated dependency updates (Dependabot)
+  - [ ] Security vulnerability scanning
+  - [ ] Quarterly dependency audits
+  - [ ] Pin versions in production
+
+- [ ] **Performance Optimization**
+  - [ ] Quarterly performance reviews
+  - [ ] Database query optimization
+  - [ ] Index tuning for vector store
+  - [ ] Profile and optimize hot paths
+
+- [ ] **Capacity Planning**
+  - [ ] Monitor growth trends
+  - [ ] Plan for 3x current capacity
+  - [ ] Cost optimization reviews
+  - [ ] Regular load testing
+
+---
+
+## Priority Levels
+
+**P0 (Before Launch):** Security, Authentication, Basic Monitoring, Backups  
+**P1 (First Month):** Full Observability, Load Testing, CI/CD, Documentation  
+**P2 (First Quarter):** Advanced Features, Optimization, Scalability  
+**P3 (Ongoing):** Maintenance, Continuous Improvement
+
+------------------------------------------------------------------------------------------
+
+System Architecture Diagram
+This high-level flow illustrates how data moves from the user to the system and back.
+
+Code snippet
+graph TD
+    %% Frontend Layer
+    subgraph Client [Frontend (React + Tailwind)]
+        UI[Chat Interface]
+        Upload[File Uploader]
+    end
+
+    %% API Layer
+    subgraph API_Gateway [FastAPI Server]
+        Auth[Auth Middleware]
+        RateLimit[Rate Limiter]
+        Endpoints[API Endpoints]
+        Stream[SSE Stream Generator]
+    end
+
+    %% Async Layer
+    subgraph Async_Worker [Celery Worker]
+        TaskQueue[Redis Queue]
+        DocProc[Document Processor]
+        Chunker[Semantic Chunker]
+    end
+
+    %% Core RAG Engine
+    subgraph RAG_Engine [RAG Service]
+        Orchestrator[RAG Orchestrator]
+        Security[Input Validator]
+        
+        subgraph Retrieval_System [Hybrid Retrieval]
+            VectorSearch[ChromaDB (Vector)]
+            KeywordSearch[BM25 (Keyword)]
+            Fusion[Reciprocal Rank Fusion (RRF)]
+            Reranker[Cross-Encoder]
+        end
+        
+        subgraph Reasoning_Engine [DSPy Module]
+            Rewriter[Query Rewriter]
+            CoT[Chain of Thought Generator]
+            LLM[Ollama Interface]
+        end
+    end
+
+    %% Storage Layer
+    subgraph Storage
+        Chroma[(ChromaDB)]
+        RedisCache[(Redis Cache)]
+        BM25Index[BM25 Pickle File]
+    end
+
+    %% Data Flow Connections
+    UI -->|Query| Endpoints
+    Upload -->|PDF| Endpoints
+    Endpoints -->|Task| TaskQueue
+    TaskQueue --> DocProc
+    DocProc --> Chunker
+    Chunker -->|Vectors| Chroma
+    Chunker -->|Tokens| BM25Index
+    
+    Endpoints -->|Sanitized Input| Orchestrator
+    Orchestrator --> Rewriter
+    Rewriter --> Retrieval_System
+    Retrieval_System -->|Raw Candidates| Reranker
+    Reranker -->|Top K Docs| CoT
+    CoT -->|Prompt| LLM
+    LLM -->|Stream| Stream
+    Stream --> UI
+2. Key System Components
+A. Frontend (The "Linear-Style" Client)
+Tech Stack: React, TypeScript, Tailwind CSS, Framer Motion, Lucide Icons.
+
+Role: Provides a high-performance, aesthetic interface for interaction.
+
+Key Modules:
+
+App.tsx: The main orchestrator managing state, sessions, and the event loop.
+
+ChatInput.tsx: A sophisticated input capsule handling auto-resizing, attachments, and mode switching (Fast/Deep).
+
+MessageBubble.tsx: Renders Markdown, code blocks, and "Reasoning Chains" (thoughts from the Deep mode).
+
+Sidebar.tsx: Manages chat history and the knowledge base file list.
+
+Visuals: ParticleBackground.tsx (WebGL neural network), GlowCard.tsx (mouse-tracking spotlight), StatsRadar.tsx (D3 metrics).
+
+B. API Gateway (The Entry Point)
+Tech Stack: FastAPI, Uvicorn.
+
+Role: Handles HTTP requests, manages connections, and enforces security.
+
+Key Modules:
+
+api_main.py: Defines routes (/query, /query/stream, /documents/upload).
+
+security.py: Sanitizes inputs (removes HTML/SQL injection risks) and validates file types (magic bytes check).
+
+rate_limiter.py: Uses Redis to prevent abuse (e.g., 60 requests/minute).
+
+auth.py: Simple Bearer token verification for protected routes.
+
+C. Data Ingestion Pipeline (The "write" Path)
+Role: Converts raw PDFs into searchable machine understanding.
+
+Flow:
+
+Upload: User uploads a PDF via API.
+
+Queueing: API accepts file -> Saves to temp -> Pushes task to Celery (celery_worker.py).
+
+Processing (document_processor.py):
+
+Extraction: Uses pypdf to pull raw text.
+
+Cleaning: Regex removes artifacts and whitespace.
+
+Chunking (chunkers.py):
+
+SemanticChunker: Instead of blindly cutting at 500 words, it analyzes sentence meaning. It breaks chunks only when the topic changes (using cosine similarity of embeddings).
+
+Indexing:
+
+Vector: Embeddings are generated and stored in ChromaDB.
+
+Keyword: Text is tokenized and added to the BM25 Index (saved as .pkl).
+
+D. The RAG Engine (The "Read" Path)
+Role: Finds the best answer using "Hybrid Search" and "Deep Reasoning".
+
+Orchestrator: rag_service.py manages the entire pipeline.
+
+1. Retrieval Phase (retrievers.py):
+
+Vector Search: Finds conceptually similar documents (e.g., "dog" matches "puppy").
+
+BM25 Search: Finds exact keyword matches (e.g., specific error codes or IDs).
+
+Fusion (RRF): Merges these two lists using Reciprocal Rank Fusion to get the best of both worlds.
+
+2. Reranking Phase:
+
+Cross-Encoder: A specialized model (ms-marco-MiniLM) looks at the top 20 candidates and scores them purely on relevance to the query. It acts as a strict "Judge" to filter out noise.
+
+3. Generation Phase (dspy_module.py):
+
+DSPy: Unlike standard LangChain/OpenAI calls, this uses a compiled program. It has been "trained" (via train_dspy.py) to know exactly how to structure answers for this specific use case.
+
+Chain of Thought: If "Deep Mode" is active, it generates a reasoning trace before the final answer.
+
+E. Infrastructure & Observability
+Configuration (config.py): Centralized Pydantic settings for managing env vars, model names, and thresholds.
+
+Caching (caching.py): Redis is used to cache expensive embedding operations. If you upload the same sentence twice, it doesn't re-calculate.
+
+Metrics (metrics.py & observability.py): Tracks latency, token usage, and error rates using Prometheus.
+
+3. Detailed Data Flow Scenarios
+Scenario A: User uploads a Resume PDF
+Frontend: Sidebar calls POST /documents/upload.
+
+API: api_main validates the file size and extension. Saves to disk.
+
+Processor: DocumentProcessor reads the PDF bytes.
+
+Chunker: SemanticChunker groups sentences about "Work Experience" together and "Education" together.
+
+Storage:
+
+Chunks sent to ChromaDB (for questions like "What is his experience?").
+
+Chunks sent to BM25 (for questions like "Did he use Python 3.11?").
+
+Response: "Success: 15 chunks created."
+
+Scenario B: User asks "Tell me about the Orchestration Engine" (Deep Mode)
+Frontend: App.tsx sends query + mode="deep" to /query/stream.
+
+RAG Service:
+
+Step 1 (Search): Queries ChromaDB and BM25. Gets 30 results.
+
+Step 2 (Fuse): RRF combines them into a top 20 list.
+
+Step 3 (Judge): Cross-Encoder reads all 20. It discards 16 irrelevant ones and keeps the top 4 highly relevant snippets.
+
+DSPy Module:
+
+Receives the 4 snippets.
+
+DeepSignature: "Analyze the context. Connect disparate pieces. Explain reasoning."
+
+Ollama: Generates the "Thought Process" (e.g., "The text mentions Go and Docker API...") and then the "Final Answer".
+
+Streaming: The API streams the "Status Updates" (Searching -> Reranking -> Thinking) and then the final Markdown answer back to the UI.
+
+Frontend: MessageBubble renders the thoughts in a purple box and the answer below it.
+
+4. System Highlights (Why this is "Senior" Level)
+Hybrid Search: You aren't relying on just Vectors (which fail at exact keywords) or just Keywords (which fail at concepts). You use both.
+
+Semantic Chunking: You aren't arbitrarily cutting text in the middle of sentences. You use embeddings to find logical breaks.
+
+DSPy Optimization: You aren't just prompting. You are compiling a pipeline that learns from examples (train_dspy.py) to be more accurate.
+
+Asynchronous Processing: Heavy PDF parsing happens in a Celery worker, ensuring the API never lags or times out during uploads.
+
+Observability: The system is built to be monitored (Prometheus metrics) from day one.

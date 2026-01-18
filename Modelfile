@@ -1,0 +1,11 @@
+FROM llama3
+# Set context window size (Default is 2048, let's bump to 8192 for large docs)
+PARAMETER num_ctx 8192
+# reduce "laziness"
+PARAMETER temperature 0.3
+SYSTEM """
+You are a helpful RAG Assistant. 
+You will be given context documents. 
+You must answer the user's question using ONLY that context.
+If you don't know, say "I don't know".
+"""

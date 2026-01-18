@@ -1,57 +1,28 @@
-# Core RAG
-chromadb==0.5.0
-ollama==0.2.0
-sentence-transformers==3.0.0
-rank-bm25==0.2.2
-scikit-learn==1.5.0
-numpy==1.26.0
-PyMuPDF==1.24.0
-langchain-core==0.2.0
-langchain-community==0.2.0
-
-# Async & Performance
-fastapi==0.111.0
-uvicorn[standard]==0.30.0
-httpx==0.27.0
-aioredis==2.0.1
-asyncpg==0.29.0
-aiofiles==24.1.0
-
-# Reliability
-tenacity==8.4.0
-pybreaker==0.7.0
-timeout-decorator==0.5.0
-
-# Validation & Security
-pydantic==2.7.0
-pydantic-settings==2.2.0
-python-multipart==0.0.9
-python-jose[cryptography]==3.3.0
-passlib[bcrypt]==1.7.4
-
-# Observability
-prometheus-client==0.20.0
-opentelemetry-api==1.25.0
-opentelemetry-sdk==1.25.0
-opentelemetry-instrumentation-fastapi==0.46b0
-opentelemetry-exporter-otlp==1.25.0
-structlog==24.2.0
-
-# Background Processing
-celery==5.4.0
-redis==5.0.4
-
-# Evaluation
-ragas==0.1.0
-datasets==2.20.0
-
-# Testing
-pytest==8.2.0
-pytest-asyncio==0.23.0
-pytest-cov==5.0.0
-locust==2.28.0
-
-# Utilities
-python-dotenv==1.0.1
-tiktoken==0.7.0
-
+fastapi>=0.100.0
+uvicorn>=0.23.0
+pydantic>=2.0.0
+pydantic-settings>=2.0.0
+python-multipart
+# Vector Database
+chromadb>=0.4.0
+# LLM & DSPy
+dspy-ai>=2.1.0
+ollama>=0.1.6
+# Search & Math
+rank_bm25
+numpy
+# Machine Learning (Re-ranking)
+sentence-transformers
+torch
+# Utils
+python-magic-bin; sys_platform == 'win32'
+python-magic; sys_platform != 'win32'
+structlog
+redis
+celery
+opentelemetry-api
+opentelemetry-sdk
+opentelemetry-instrumentation-fastapi
+prometheus-client
+tenacity 
+pypdf

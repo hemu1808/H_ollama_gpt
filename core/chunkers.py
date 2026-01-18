@@ -1,14 +1,21 @@
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from typing import List
+from typing import List, Optional
 import asyncio
 from config import settings
 import numpy as np
+import re
+
+# --- FIXED IMPORT ---
+# We use the full package path to avoid import errors
+from .caching import EmbeddingCache
+from .retrievers import PersistedBM25Retriever 
 
 class SemanticChunker:
     """Intelligent chunking based on semantic similarity"""
     
-    def __init__(self, embedding_cache: 'EmbeddingCache'):
+    # Fixed type hint from 'None' to 'EmbeddingCache'
+    def __init__(self, embedding_cache: Optional[EmbeddingCache] = None):
         self.embedding_cache = embedding_cache
         self.base_splitter = RecursiveCharacterTextSplitter(
             chunk_size=settings.CHUNK_SIZE,
@@ -47,26 +54,41 @@ class SemanticChunker:
         
         return breakpoints
     
+    async def get_embedding(self, text: str) -> List[float]:
+        """
+        Placeholder for actual embedding logic. 
+        In production, this connects to Ollama or OpenAI.
+        """
+        # Checks if a dynamic override exists (patched in document_processor)
+        if hasattr(self, '_dynamic_embed_fn'):
+            return await self._dynamic_embed_fn(text)
+        return [0.0] * 384 # Fallback mock
+
     async def chunk_semantically(
         self,
         documents: List[Document]
     ) -> List[Document]:
         """Create semantically coherent chunks"""
+        if not self.embedding_cache:
+            # Fallback if cache/embeddings aren't configured
+            return self.base_splitter.split_documents(documents)
+
         sentences = await self.sentencize(documents)
         
         # Embed each sentence
         embeddings = []
         for sentence in sentences:
+            # Use a lambda to defer the embedding call
             emb = await self.embedding_cache.get_or_create(
                 sentence['text'],
-                lambda: self.get_embedding(sentence['text'])
+                self.get_embedding
             )
             embeddings.append(emb)
         
         # Find breakpoints
         breakpoints = await self.find_breakpoints(
             embeddings,
-            settings.SEMANTIC_CHUNK_THRESHOLD
+            getattr(settings, 'SEMANTIC_CHUNK_THRESHOLD', 0.7)
         )
         
         # Merge sentences into chunks
@@ -91,7 +113,7 @@ class SemanticChunker:
 class ParentChildChunker:
     """Enhanced parent-child with semantic boundaries"""
     
-    def __init__(self, embedding_cache: 'EmbeddingCache'):
+    def __init__(self, embedding_cache: EmbeddingCache):
         self.semantic_chunker = SemanticChunker(embedding_cache)
         self.base_splitter = RecursiveCharacterTextSplitter(
             chunk_size=settings.CHUNK_SIZE,

@@ -1,0 +1,149 @@
+{
+  "rewriter.predict": {
+    "traces": [],
+    "train": [],
+    "demos": [
+      {
+        "context": "This project uses Python 3.11 and FastAPI.",
+        "question": "Language used?",
+        "answer": "The project is built using **Python 3.11** and **FastAPI**."
+      },
+      {
+        "context": "The API listens on port 8000. It uses ChromaDB for vector storage.",
+        "question": "What database is used?",
+        "answer": "The system utilizes **ChromaDB** for vector storage."
+      },
+      {
+        "context": "Hemanth has 2 years of experience. He worked at StartupX.",
+        "question": "Experience summary",
+        "answer": "Hemanth has **2 years** of production experience, notably working at **StartupX**."
+      },
+      {
+        "context": "The system detects node failures in 30ms using a gRPC heartbeat mechanism.",
+        "question": "How does it handle failures?",
+        "answer": "The system implements a **gRPC heartbeat mechanism** that detects node failures within **30ms** to trigger rescheduling."
+      }
+    ],
+    "signature": {
+      "instructions": "You are a Search Query Optimizer for a Resume/Portfolio RAG system.\n1. Read the \"Chat History\" to understand the user's intent.\n2. Rewrite the \"Follow_up Question\" into a SPECIFIC, STANDALONE search query.\n3. DISAMBIGUATE pronouns (it, that, he, the project) using the history.\n4. If the question is already specific, output it unchanged.",
+      "fields": [
+        {
+          "prefix": "Chat History:",
+          "description": "Previous conversation turns"
+        },
+        {
+          "prefix": "Follow Up Question:",
+          "description": "The user's current question"
+        },
+        {
+          "prefix": "Reasoning: Let's think step by step in order to",
+          "description": "${reasoning}"
+        },
+        {
+          "prefix": "Standalone Query:",
+          "description": "The specific search query"
+        }
+      ]
+    },
+    "lm": null
+  },
+  "fast_prog": {
+    "traces": [],
+    "train": [],
+    "demos": [
+      {
+        "context": "The system detects node failures in 30ms using a gRPC heartbeat mechanism.",
+        "question": "How does it handle failures?",
+        "answer": "The system implements a **gRPC heartbeat mechanism** that detects node failures within **30ms** to trigger rescheduling."
+      },
+      {
+        "context": "The API listens on port 8000. It uses ChromaDB for vector storage.",
+        "question": "What database is used?",
+        "answer": "The system utilizes **ChromaDB** for vector storage."
+      },
+      {
+        "context": "Hemanth has 2 years of experience. He worked at StartupX.",
+        "question": "Experience summary",
+        "answer": "Hemanth has **2 years** of production experience, notably working at **StartupX**."
+      },
+      {
+        "context": "This project uses Python 3.11 and FastAPI.",
+        "question": "Language used?",
+        "answer": "The project is built using **Python 3.11** and **FastAPI**."
+      }
+    ],
+    "signature": {
+      "instructions": "You are an expert Technical Recruiter Assistant.\nAnswer the question based ONLY on the provided context about Hemanth.\n\nCRITICAL RULES:\n1. GROUNDING: If the answer is not in the context, say \"I could not find relevant information in the uploaded documents.\"\n2. ANTI-DICTIONARY: Do not define technical terms (e.g., don't explain what \"Docker\" is). Explain how Hemanth USED them.\n3. SPECIFICITY: Be precise about metrics, dates, and technologies mentioned in the text.\n4. STYLE: Professional, concise, and direct.",
+      "fields": [
+        {
+          "prefix": "Context:",
+          "description": "Relevant snippets from Hemanth's Resume/Docs"
+        },
+        {
+          "prefix": "Question:",
+          "description": "User's question"
+        },
+        {
+          "prefix": "Answer:",
+          "description": "Factual answer grounded in context"
+        }
+      ]
+    },
+    "lm": null
+  },
+  "deep_prog.predict": {
+    "traces": [],
+    "train": [],
+    "demos": [
+      {
+        "context": "Hemanth has 2 years of experience. He worked at StartupX.",
+        "question": "Experience summary",
+        "answer": "Hemanth has **2 years** of production experience, notably working at **StartupX**."
+      },
+      {
+        "context": "This project uses Python 3.11 and FastAPI.",
+        "question": "Language used?",
+        "answer": "The project is built using **Python 3.11** and **FastAPI**."
+      },
+      {
+        "context": "The system detects node failures in 30ms using a gRPC heartbeat mechanism.",
+        "question": "How does it handle failures?",
+        "answer": "The system implements a **gRPC heartbeat mechanism** that detects node failures within **30ms** to trigger rescheduling."
+      },
+      {
+        "context": "The API listens on port 8000. It uses ChromaDB for vector storage.",
+        "question": "What database is used?",
+        "answer": "The system utilizes **ChromaDB** for vector storage."
+      }
+    ],
+    "signature": {
+      "instructions": "You are a Senior Technical Analyst. \nSynthesize the provided context to answer complex questions.\nThink step-by-step about the relationships between projects, skills, and timeline.",
+      "fields": [
+        {
+          "prefix": "Context:",
+          "description": "Raw data snippets"
+        },
+        {
+          "prefix": "Question:",
+          "description": "Complex query requiring synthesis"
+        },
+        {
+          "prefix": "Reasoning: Let's think step by step in order to",
+          "description": "${reasoning}"
+        },
+        {
+          "prefix": "Answer:",
+          "description": "Detailed report with reasoning"
+        }
+      ]
+    },
+    "lm": null
+  },
+  "metadata": {
+    "dependency_versions": {
+      "python": "3.12",
+      "dspy": "3.1.0",
+      "cloudpickle": "3.1"
+    }
+  }
+}

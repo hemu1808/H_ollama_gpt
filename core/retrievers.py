@@ -1,175 +1,166 @@
-from typing import List, Tuple, Dict, Any, Optional
+import pickle
+import os
+import time
 import numpy as np
-from rank_bm25 import BM25Okapi
-import asyncio
-from collections import defaultdict
-from config import settings
 import logging
+import sys
+from typing import List, Tuple
+from rank_bm25 import BM25Okapi
+import re
+from config import settings
 
 logger = logging.getLogger(__name__)
 
-class BM25Retriever:
-    """Production BM25 with proper parameters"""
-    
-    def __init__(self, k1: float = 1.5, b: float = 0.75):
-        self.k1 = k1
-        self.b = b
+# --- CROSS-PLATFORM FILE LOCKING ---
+class FileLock:
+    def __init__(self, filename):
+        self.filename = filename
+        self.handle = None
+
+    def acquire(self):
+        if os.name == 'nt':  # Windows
+            import msvcrt
+            self.handle = open(self.filename, 'w')
+            # Lock the first byte of the file
+            try:
+                msvcrt.locking(self.handle.fileno(), msvcrt.LK_NBLCK, 1)
+            except IOError:
+                # If already locked, wait and retry (simple spinlock)
+                time.sleep(0.1)
+                try:
+                    msvcrt.locking(self.handle.fileno(), msvcrt.LK_NBLCK, 1)
+                except IOError:
+                    raise BlockingIOError("Resource locked")
+        else:  # Linux/Mac
+            import fcntl
+            self.handle = open(self.filename, 'w')
+            fcntl.flock(self.handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+
+    def release(self):
+        if self.handle:
+            if os.name == 'nt':
+                import msvcrt
+                self.handle.seek(0)
+                msvcrt.locking(self.handle.fileno(), msvcrt.LK_UNLCK, 1)
+            else:
+                import fcntl
+                fcntl.flock(self.handle, fcntl.LOCK_UN)
+            self.handle.close()
+            self.handle = None
+
+    def __enter__(self):
+        self.acquire()
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.release()
+
+class PersistedBM25Retriever:
+    def __init__(self, index_path: str = "./data/bm25_index.pkl"):
+        self.index_path = index_path
+        self.k1 = getattr(settings, 'BM25_K1', 1.5)
+        self.b = getattr(settings, 'BM25_B', 0.75)
         self.corpus = []
         self.doc_ids = []
         self.bm25 = None
-        self.tokenizer = lambda text: re.findall(r'\b\w+\b', text.lower())
-    
-    def fit(self, documents: List[str], doc_ids: List[str]):
-        """Build BM25 index"""
-        self.corpus = [self.tokenizer(doc) for doc in documents]
-        self.doc_ids = doc_ids
-        self.bm25 = BM25Okapi(self.corpus, k1=self.k1, b=self.b)
-        logger.info(f"BM25 indexed {len(documents)} documents")
-    
-    def retrieve(self, query: str, top_k: int = 10) -> List[Tuple[str, float]]:
-        """Retrieve top-k document IDs with scores"""
-        if not self.bm25:
-            return []
+        self.last_mtime = 0
         
-        tokenized_query = self.tokenizer(query)
-        scores = self.bm25.get_scores(tokenized_query)
-        
-        # Get top indices
-        top_indices = np.argpartition(scores, -top_k)[-top_k:]
-        top_indices = top_indices[np.argsort(scores[top_indices])[::-1]]
-        
-        return [(self.doc_ids[idx], float(scores[idx])) for idx in top_indices]
+        self.load_index_if_fresh()
 
-class DistributedBM25:
-    """Shard BM25 across multiple indices for scalability"""
-    
-    def __init__(self, shard_size: int = 10000):
-        self.shard_size = shard_size
-        self.shards: List[BM25Retriever] = []
-        self.doc_id_to_shard: Dict[str, int] = {}
-        self.lock = asyncio.Lock()
-    
-    async def add_documents(
-        self,
-        docs: List[str],
-        doc_ids: List[str]
-    ):
-        """Add documents to appropriate shards"""
-        async with self.lock:
-            for i, (doc, doc_id) in enumerate(zip(docs, doc_ids)):
-                shard_idx = len(self.shards) - 1
-                if not self.shards or len(self.shards[shard_idx].corpus) >= self.shard_size:
-                    self.shards.append(BM25Retriever())
+    def tokenizer(self, text: str):
+        return re.findall(r'\b[a-zA-Z0-9]+\b', text.lower())
+
+    def _get_file_mtime(self):
+        if os.path.exists(self.index_path):
+            return os.path.getmtime(self.index_path)
+        return 0
+
+    def load_index_if_fresh(self):
+        current_mtime = self._get_file_mtime()
+        if current_mtime > self.last_mtime:
+            self.load_index()
+            self.last_mtime = current_mtime
+
+    def index_documents(self, documents: List[str], doc_ids: List[str]):
+        """Thread-safe indexing using cross-platform lock."""
+        lock_path = self.index_path + ".lock"
+        
+        try:
+            with FileLock(lock_path):
+                # Reload explicitly to get latest state from other workers
+                self.load_index() 
                 
-                # Add to the last shard
-                shard = self.shards[-1]
-                shard.corpus.append(shard.tokenizer(doc))
-                shard.doc_ids.append(doc_id)
-                self.doc_id_to_shard[doc_id] = len(self.shards) - 1
-            
-            # Rebuild IDF for affected shards
-            for shard in self.shards:
-                if shard.corpus:
-                    shard.bm25 = BM25Okapi(shard.corpus, k1=settings.BM25_K1, b=settings.BM25_B)
-    
-    async def retrieve(self, query: str, top_k: int = 10) -> List[Tuple[str, float]]:
-        """Parallel search across all shards"""
-        # Search each shard
-        shard_results = await asyncio.gather(*[
-            asyncio.to_thread(shard.retrieve, query, top_k=top_k*2)
-            for shard in self.shards
-        ])
-        
-        # Flatten and merge results
-        all_results = []
-        for results in shard_results:
-            all_results.extend(results)
-        
-        # Sort by score and deduplicate
-        seen = set()
-        final_results = []
-        for doc_id, score in sorted(all_results, key=lambda x: x[1], reverse=True):
-            if doc_id not in seen:
-                seen.add(doc_id)
-                final_results.append((doc_id, score))
-                if len(final_results) >= top_k:
-                    break
-        
-        return final_results
+                # Update Memory
+                tokenized_docs = [self.tokenizer(doc) for doc in documents]
+                self.corpus.extend(tokenized_docs)
+                self.doc_ids.extend(doc_ids)
+                
+                # Re-calculate BM25
+                self.bm25 = BM25Okapi(self.corpus, k1=self.k1, b=self.b)
+                
+                # Save
+                self.save_index()
+        except BlockingIOError:
+            logger.warning("Could not acquire lock for BM25 index, skipping update this time.")
+        except Exception as e:
+            logger.error(f"Error updating BM25: {e}")
 
-class ElasticsearchRetriever:
-    """Elasticsearch-based retrieval for web-scale"""
-    
-    def __init__(self, es_url: str):
-        from elasticsearch import AsyncElasticsearch
-        self.es = AsyncElasticsearch(es_url)
-    
-    async def create_index(self, index_name: str):
-        """Create index with BM25-like settings"""
-        await self.es.indices.create(
-            index=index_name,
-            body={
-                "settings": {
-                    "similarity": {
-                        "custom_bm25": {
-                            "type": "BM25",
-                            "k1": settings.BM25_K1,
-                            "b": settings.BM25_B
-                        }
-                    }
-                },
-                "mappings": {
-                    "properties": {
-                        "content": {
-                            "type": "text",
-                            "similarity": "custom_bm25"
-                        },
-                        "metadata": {
-                            "type": "object"
-                        }
-                    }
-                }
-            }
-        )
-    
-    async def add_documents(
-        self,
-        docs: List[str],
-        doc_ids: List[str],
-        metadatas: List[dict]
-    ):
-        """Bulk index documents"""
-        from elasticsearch.helpers import async_bulk
+    def retrieve(self, query: str, top_k: int = 10) -> List[Tuple[str, float]]:
+        self.load_index_if_fresh()
         
-        actions = [
-            {
-                "_index": settings.COLLECTION_NAME,
-                "_id": doc_id,
-                "_source": {
-                    "content": doc,
-                    "metadata": meta
-                }
-            }
-            for doc, doc_id, meta in zip(docs, doc_ids, metadatas)
-        ]
+        if not self.bm25 or not self.corpus:
+            return []
+            
+        tokenized_query = self.tokenizer(query)
+        if not tokenized_query:
+            return []
+            
+        scores = self.bm25.get_scores(tokenized_query)
+        top_n = np.argsort(scores)[::-1][:top_k]
         
-        await async_bulk(self.es, actions)
+        results = []
+        for idx in top_n:
+            if scores[idx] > 0:
+                results.append((self.doc_ids[idx], float(scores[idx])))
+        return results
+
+    def save_index(self):
+        os.makedirs(os.path.dirname(self.index_path), exist_ok=True)
+        with open(self.index_path, 'wb') as f:
+            pickle.dump({
+                'corpus': self.corpus,
+                'doc_ids': self.doc_ids
+            }, f)
+        self.last_mtime = os.path.getmtime(self.index_path)
+
+    def load_index(self):
+        if not os.path.exists(self.index_path):
+            return
+        try:
+            with open(self.index_path, 'rb') as f:
+                data = pickle.load(f)
+                self.corpus = data.get('corpus', [])
+                self.doc_ids = data.get('doc_ids', [])
+                if self.corpus:
+                    self.bm25 = BM25Okapi(self.corpus, k1=self.k1, b=self.b)
+        except Exception as e:
+            logger.error(f"Failed to load BM25 index: {e}")
+
+def reciprocal_rank_fusion(
+    vector_results: List[Tuple[str, float]], 
+    keyword_results: List[Tuple[str, float]], 
+    k: int = 60
+) -> List[Tuple[str, float]]:
+    fused_scores = {}
+    if not vector_results: vector_results = []
+    if not keyword_results: keyword_results = []
+
+    for rank, (doc_id, _) in enumerate(vector_results):
+        if doc_id not in fused_scores: fused_scores[doc_id] = 0
+        fused_scores[doc_id] += 1 / (k + rank + 1)
+        
+    for rank, (doc_id, _) in enumerate(keyword_results):
+        if doc_id not in fused_scores: fused_scores[doc_id] = 0
+        fused_scores[doc_id] += 1 / (k + rank + 1)
     
-    async def retrieve(self, query: str, top_k: int = 10) -> List[Tuple[str, float]]:
-        """Search with BM25 scoring"""
-        resp = await self.es.search(
-            index=settings.COLLECTION_NAME,
-            body={
-                "query": {
-                    "match": {
-                        "content": query
-                    }
-                },
-                "size": top_k
-            }
-        )
-        
-        return [
-            (hit["_id"], hit["_score"])
-            for hit in resp["hits"]["hits"]
-        ]
+    return sorted(fused_scores.items(), key=lambda x: x[1], reverse=True)

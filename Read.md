@@ -647,7 +647,7 @@ kubectl apply -f k8s/hpa.yaml
 bash
 
  Start development server (hot reload)
-uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
+uvicorn api_main:app --reload --host 0.0.0.0 --port 8000
 
  Run tests with coverage
 pytest --cov=core --cov=services --cov-report term-missing

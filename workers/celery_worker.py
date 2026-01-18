@@ -1,15 +1,19 @@
-from celery import Celery
-from celery.signals import worker_ready
-from config import settings
+import os
 import asyncio
-from services import DocumentProcessor
-from core import EmbeddingCache
+import logging
+from celery import Celery
+from config import settings
+from document_processor import DocumentProcessor
+
+# Setup Logging
+logger = logging.getLogger(__name__)
 
 # Initialize Celery
+REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 celery_app = Celery(
     'rag_worker',
-    broker=settings.CELERY_BROKER_URL,
-    backend=settings.CELERY_RESULT_BACKEND
+    broker=REDIS_URL,
+    backend=REDIS_URL
 )
 
 celery_app.conf.update(
@@ -18,29 +22,38 @@ celery_app.conf.update(
     accept_content=['json'],
     timezone='UTC',
     enable_utc=True,
-    worker_prefetch_multiplier=1,
-    task_acks_late=True,
-    worker_max_tasks_per_child=1000,
 )
 
-# Initialize components
-embedding_cache = EmbeddingCache(settings.REDIS_URL)
-doc_processor = DocumentProcessor(embedding_cache)
+# --- FIX: Initialize without arguments ---
+# The DocumentProcessor now initializes its own cache/retrievers internally
+doc_processor = DocumentProcessor()
 
-@celery_app.task(bind=True, max_retries=3)
-def process_document_task(self, file_content: bytes, filename: str):
-    """Process document in background"""
+@celery_app.task(bind=True, name="process_document_task", max_retries=3)
+def process_document_task(self, file_content_str: str, filename: str):
+    """
+    Background task to process uploaded documents.
+    """
     try:
-        # Run async code in sync context
-        chunks = asyncio.run(doc_processor.process_upload(file_content, filename))
+        logger.info(f"Worker processing file: {filename}")
         
-        # Format for storage
+        # Celery passes data as strings/JSON. We might need to encode back to bytes 
+        # if your frontend sent base64, or use as is if it's raw text.
+        # Assuming simple string content for this example:
+        file_bytes = file_content_str.encode('utf-8')
+        
+        # Run Async processor in Sync Celery worker
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            docs = loop.run_until_complete(doc_processor.process_upload(file_bytes, filename))
+        else:
+            docs = asyncio.run(doc_processor.process_upload(file_bytes, filename))
+            
         return {
-            'status': 'success',
-            'chunks': len(chunks),
-            'documents': [doc.page_content for doc in chunks],
-            'metadatas': [doc.metadata for doc in chunks]
+            "status": "success", 
+            "chunks": len(docs), 
+            "message": f"Processed {filename}"
         }
+        
     except Exception as e:
-        logger.error("task_failed", task_id=self.request.id, error=str(e))
-        raise self.retry(exc=e, countdown=60)
+        logger.error(f"Task failed: {e}")
+        raise self.retry(exc=e, countdown=10)

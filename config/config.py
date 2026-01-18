@@ -4,10 +4,12 @@ import os
 
 class Settings(BaseSettings):
     # Application
-    APP_NAME: str = "ProductionRAG"
+    APP_NAME: str = "RAG"
     ENVIRONMENT: str = "development"
     DEBUG: bool = False
     
+    MAX_FILE_SIZE: int = 50 * 1024 * 1024  # 50 MB
+
     # API
     API_HOST: str = "0.0.0.0"
     API_PORT: int = 8000
@@ -22,12 +24,13 @@ class Settings(BaseSettings):
     OLLAMA_URL: str = "http://localhost:11434"
     OLLAMA_LLM_MODEL: str = "llama3.1:8b"
     OLLAMA_EMBEDDING_MODEL: str = "nomic-embed-text"
-    
+    os.environ["OLLAMA_API_KEY"] = "ollama"
+
     # Vector Store
     CHROMADB_PATH: str = "./data/chroma"
     CHROMADB_HOST: str = "localhost"
     CHROMADB_PORT: int = 8000
-    COLLECTION_NAME: str = "production_rag"
+    COLLECTION_NAME: str = "rag"
     DEFAULT_N_RESULTS: int = 20
     
     # Retrieval
