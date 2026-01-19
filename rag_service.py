@@ -11,7 +11,8 @@ from config import settings
 from core.security import SecurityValidator
 from dspy_module import RAGModule 
 from core.retrievers import PersistedBM25Retriever, reciprocal_rank_fusion
-from schemas import QueryInput, AnswerResponse  
+from schemas import QueryInput, AnswerResponse 
+from core.circuit_breaker import CircuitBreaker, CircuitBreakerOpenException 
 
 # Lazy Load CrossEncoder (Heavy Model)
 try:
@@ -34,6 +35,7 @@ class RAGService:
         # 2. Load Vector Search (Chroma)
         self.chroma_client = chromadb.PersistentClient(path=settings.CHROMADB_PATH)
         self.collection = self.chroma_client.get_or_create_collection(name=settings.COLLECTION_NAME)
+        self.circuit_breaker = CircuitBreaker(failure_threshold=5, recovery_timeout=60)
 
         # 3. Load Re-ranker (The "Deep Think" judge)
         self.cross_encoder = None
@@ -65,37 +67,34 @@ class RAGService:
         
     async def delete_document(self, filename: str) -> bool:
         try:
-            logger.info(f"Attempting to delete {filename}...")
-
-            # --- STEP 1: Delete from Vector Database (The "Memory") ---
-            # If you are using ChromaDB:
-            try:
-                # This deletes all chunks associated with this source file
-                self.collection.delete(where={"source": filename})
-                logger.info(f"Removed {filename} from Vector DB")
-            except Exception as e:
-                logger.error(f"Vector DB deletion failed: {e}")
-                # We continue anyway to try and delete the physical file
-
-            # --- STEP 2: Delete Physical File (The "Source") ---
-            # Adjust this path if your files are stored elsewhere (e.g., in a 'data' folder)
-            file_path = f"./data/{filename}" 
+            logger.info(f"Deleting {filename}...")
             
+            # --- 1. Vector DB Deletion ---
+            # Query to get IDs first to confirm existence
+            results = self.collection.get(where={"source": filename})
+            ids_to_delete = results['ids']
+            
+            if ids_to_delete:
+                self.collection.delete(where={"source": filename})
+                logger.info(f"Removed {len(ids_to_delete)} chunks from Chroma.")
+            else:
+                logger.warning(f"No chunks found in Chroma for {filename}")
+
+            # --- 2. BM25 Deletion ---
+            # Note: BM25 is usually append-only for speed. 
+            # Complete rebuild is safest for deletion, but slow.
+            # For now, we accept it might stay in BM25 until next rebuild.
+            # Or you can trigger a rebuild here if the corpus is small.
+            
+            # --- 3. Physical File Deletion ---
+            # If you save files to a folder, delete them here.
+            # Assuming files are temporary or managed externally, 
+            # but if you have a './data' folder:
+            file_path = os.path.join("data", filename)
             if os.path.exists(file_path):
                 os.remove(file_path)
-                logger.info(f"Deleted physical file: {file_path}")
-            else:
-                # Check if it's in the root directory
-                if os.path.exists(filename):
-                    os.remove(filename)
-                    logger.info(f"Deleted physical file from root: {filename}")
-
-            # --- STEP 3: Clear Internal Cache (If applicable) ---
-            # If your 'list_documents' uses a cached list, clear it here.
-            # self.document_cache = [] 
-
+            
             return True
-
         except Exception as e:
             logger.error(f"Failed to delete {filename}: {e}")
             return False
@@ -110,6 +109,8 @@ class RAGService:
                 data = json.loads(chunk.replace("data: ", ""))
                 if data.get("type") == "result":
                     response_data = data
+        if self.cross_encoder:
+            logger.info("Re-ranker is active and filtering results.")
         
         return AnswerResponse(
             answer=response_data.get("answer", "Processing failed."),
@@ -199,21 +200,42 @@ class RAGService:
 
             # 4. DSPy Generation
             yield f"data: {json.dumps({'type': 'status', 'content': 'Generating Answer...'})}\n\n"
-            
-            answer = ""
-            thoughts = None
+
+            try:
+                @self.circuit_breaker
+                def safe_generate():
+                    return self.rag_module.forward(
+                        question=search_query, 
+                        context="\n---\n".join(final_docs), 
+                        history_str=history_str if 'history_str' in locals() else "",
+                        mode=input_data.mode
+                    )
+                prediction = safe_generate()
+                answer = prediction.answer
+                thoughts = getattr(prediction, 'rationale', None)
+            except CircuitBreakerOpenException:
+                logger.error("Circuit Breaker is OPEN. LLM service is unavailable.")
+                yield f"data: {json.dumps({'type': 'error', 'answer': 'Service Unavailable', 'thoughts': 'The system is currently experiencing issues. Please try again later.'})}\n\n"
+                return
+            except Exception as e:
+                logger.error(f"Error during generation: {e}")
+                yield f"data: {json.dumps({'type': 'error', 'answer': 'Generation Error', 'thoughts': str(e)})}\n\n"
+                return
             
             if not final_docs:
                 answer = "I could not find any relevant information in the uploaded documents."
                 sources = []
             else:
                 context = "\n---\n".join(final_docs)
+
+                history_input = history_str if 'history_str' in locals() else ""
                 
                 # Run the DSPy Module
                 # if mode="deep", this triggers ChainOfThought
                 prediction = self.rag_module(
                     question=search_query, 
                     context=context, 
+                    history_str=history_input,
                     mode=input_data.mode
                 )
                 

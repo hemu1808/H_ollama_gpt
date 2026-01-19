@@ -1,38 +1,8 @@
-resume 
-Option 1: Full Stack / AI Engineer Focus (Best Overall)
-Architected an Advanced RAG System: Built a production-ready Retrieval-Augmented Generation platform using FastAPI, Celery, and Redis, capable of asynchronous PDF ingestion and semantic processing.
-
-Implemented Hybrid Search & Re-ranking: Engineered a retrieval pipeline combining ChromaDB (vector search) and BM25 (keyword search) using Reciprocal Rank Fusion (RRF), followed by Cross-Encoder re-ranking to maximize context relevance.
-
-Optimized LLM Workflows with DSPy: Integrated DSPy to compile and optimize prompt signatures, enabling a "Deep Think" mode with Chain-of-Thought (CoT) reasoning and self-refining query rewriting.
-
-Developed Modern React Frontend: Designed a high-performance "Linear-style" UI using React, TypeScript, and Tailwind CSS, featuring real-time Server-Sent Events (SSE) streaming, glassmorphism effects, and Framer Motion animations.
-
-Option 2: Backend & System Architecture Focus
-Scalable Async Pipeline: Designed an event-driven architecture using Celery and Redis to handle heavy document processing tasks (OCR, chunking) off the main thread, ensuring non-blocking API performance.
-
-Advanced Data Ingestion: Developed a Semantic Chunking strategy that uses embedding similarity to identify logical breakpoints in text, improving retrieval accuracy over standard fixed-size chunking.
-
-Robust Security & Observability: Implemented Prometheus metrics and OpenTelemetry tracing for real-time monitoring of query latency and token usage, alongside rate limiting and input sanitization layers.
-
-Performance Optimization: Integrated Redis caching for embeddings and a custom circuit breaker pattern to ensure system resilience and reduce redundant computations.
-
-Option 3: Frontend / UX Focus
-Interactive AI Dashboard: Built a responsive chat interface with React and TypeScript, implementing complex features like auto-resizing input capsules, real-time message streaming, and markdown rendering with syntax highlighting.
-
-High-End UI Engineering: Crafted a "Linear-inspired" aesthetic using Tailwind CSS, utilizing CSS transforms, backdrops filters (glassmorphism), and custom canvas animations (ParticleBackground) for a premium user experience.
-
-State Management & UX: Managed complex client-side state for chat sessions, file uploads, and "Deep Think" mode toggles, creating a seamless, app-like experience without page reloads.
-
 Key Technologies to List:
 Languages: Python, TypeScript, JavaScript
-
 Backend: FastAPI, Uvicorn, Celery, Redis
-
 Frontend: React, Tailwind CSS, Framer Motion, Lucide React
-
 AI/ML: DSPy, Ollama, LangChain, ChromaDB, Sentence Transformers (Cross-Encoder), Rank-BM25
-
 DevOps/Tools: Docker, Prometheus, OpenTelemetry
 ---------------------------------------------------------------------------------------------------
 - [ ] **Authentication & Authorization**
@@ -364,6 +334,7 @@ graph TD
     CoT -->|Prompt| LLM
     LLM -->|Stream| Stream
     Stream --> UI
+    
 2. Key System Components
 A. Frontend (The "Linear-Style" Client)
 Tech Stack: React, TypeScript, Tailwind CSS, Framer Motion, Lucide Icons.

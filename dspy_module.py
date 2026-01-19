@@ -1,27 +1,30 @@
 import dspy
 import os
+import logging
 from config import settings
+
+logger = logging.getLogger(__name__)
 
 # --- 1. CONFIGURATION ---
 def get_llm():
-    # We use a slightly higher temperature for the teacher during training
-    # but keep it low for inference to be factual.
     return dspy.LM(
         model='ollama/' + settings.OLLAMA_LLM_MODEL, 
         api_base=settings.OLLAMA_URL,
-        api_key=""
+        api_key="ollama",
+        temperature=0.1,
+        num_ctx = 4096  # Low temp for factual consistency
     )
 
 try:
     dspy.configure(lm=get_llm())
 except Exception as e:
-    print(f"Error configuring DSPy: {e}")
+    logger.error(f"Error configuring DSPy: {e}")
 
-# --- 2. SIGNATURES (PROMPTS) ---
+# --- 2. SIGNATURES ---
 
 class RewriteSignature(dspy.Signature):
     """
-    You are a Search Query Optimizer for a Resume/Portfolio RAG system.
+    You are a Search Query Optimizer.
     1. Read the "Chat History" to understand the user's intent.
     2. Rewrite the "Follow_up Question" into a SPECIFIC, STANDALONE search query.
     3. DISAMBIGUATE pronouns (it, that, he, the project) using the history.
@@ -33,74 +36,99 @@ class RewriteSignature(dspy.Signature):
 
 class FastSignature(dspy.Signature):
     """
-    You are an expert Technical Recruiter Assistant.
-    Answer the question based ONLY on the provided context about Hemanth.
+    You are an expert RAG Assistant. 
+    Answer the question based STRICTLY on the provided 'Context'.
     
     CRITICAL RULES:
     1. GROUNDING: If the answer is not in the context, say "I could not find relevant information in the uploaded documents."
-    2. ANTI-DICTIONARY: Do not define technical terms (e.g., don't explain what "Docker" is). Explain how Hemanth USED them.
-    3. SPECIFICITY: Be precise about metrics, dates, and technologies mentioned in the text.
-    4. STYLE: Professional, concise, and direct.
+    2. STYLE: Professional, concise, and direct.
+    3. Do NOT use outside knowledge or training examples. 
+    4. Use 'Chat History' to understand the conversation context.
     """
-    context = dspy.InputField(desc="Relevant snippets from Hemanth's Resume/Docs")
+    context = dspy.InputField(desc="Relevant snippets from documents")
     question = dspy.InputField(desc="User's question")
     answer = dspy.OutputField(desc="Factual answer grounded in context")
 
 class DeepSignature(dspy.Signature):
     """
-    You are a Senior Technical Analyst. 
+    You are a Senior Expert Analyst. 
     Synthesize the provided context to answer complex questions.
     Think step-by-step about the relationships between projects, skills, and timeline.
+    Use Chat History for continuity.
     """
     context = dspy.InputField(desc="Raw data snippets")
     question = dspy.InputField(desc="Complex query requiring synthesis")
     answer = dspy.OutputField(desc="Detailed report with reasoning")
+    rationale = dspy.OutputField(desc="Reasoning steps (Chain of Thought)")
+
+class HallucinationGuard(dspy.Signature):
+    """
+    Verify if the 'answer' is fully supported by the 'context'.
+    Output 'True' if supported, 'False' if it contains hallucinated info.
+    """
+    context = dspy.InputField()
+    question = dspy.InputField()
+    answer = dspy.InputField()
+    is_supported = dspy.OutputField(desc="True or False")
 
 # --- 3. THE MODULE ---
 class RAGModule(dspy.Module):
     def __init__(self):
         super().__init__()
-        # The Rewriter (Handles Memory)
+        # 1. Rewriter (Memory)
         self.rewriter = dspy.ChainOfThought(RewriteSignature)
         
-        # The Generators (Handle QA)
+        # 2. Generators (QA)
         self.fast_prog = dspy.Predict(FastSignature)
         self.deep_prog = dspy.ChainOfThought(DeepSignature)
         
-        # Load optimized weights (The "Training" Result)
+        # 3. Guardrail (The "Critic")
+        self.guard = dspy.Predict(HallucinationGuard)
+        
+        # Load optimized weights
         self._load_compiled_program()
 
     def _load_compiled_program(self):
-        """Attempts to load the 'Brain' optimized by train_dspy.py"""
         compiled_path = "./data/compiled_rag.json"
         if os.path.exists(compiled_path):
             try:
                 self.load(compiled_path)
-                print(f"Loaded optimized DSPy program from {compiled_path}")
+                logger.info(f"Loaded optimized DSPy program from {compiled_path}")
             except Exception as e:
-                print(f"Failed to load optimized program: {e}")
+                logger.warning(f"Failed to load optimized program: {e}")
 
     def rewrite_query(self, question, history_str):
-        """
-        Turns 'tell me more about it' -> 'Details about the Orchestration Engine'
-        """
-        # If no history, no need to rewrite
         if not history_str:
             return question
-            
-        pred = self.rewriter(chat_history=history_str, follow_up_question=question)
-        return pred.standalone_query
+        try:
+            pred = self.rewriter(chat_history=history_str, follow_up_question=question)
+            return pred.standalone_query
+        except Exception:
+            return question
 
-    def forward(self, question, context, mode="fast"):
+    def forward(self, question, context, history_str="", mode="fast"):
+        # 1. Generate Initial Answer
         if mode == "deep":
-            return self.deep_prog(context=context, question=question)
+            pred = self.deep_prog(context=context, 
+                                  question=question, 
+                                  chat_history=history_str)
+            
+            # 2. Apply Guardrail (Self-Correction) for Deep Mode
+            try:
+                check = self.guard(context=context, question=question, answer=pred.answer)
+                
+                # If the guard says "False" (unsupported), we retry with a stricter prompt
+                if "false" in check.is_supported.lower():
+                    logger.warning("Guardrail flagged hallucination. Retrying...")
+                    
+                    # Retry using the Fast signature (which is stricter) or re-prompting
+                    pred = self.fast_prog(
+                        context=context, 
+                        question=f"{question} (Strictly base your answer ONLY on the context provided.)"
+                    )
+            except Exception as e:
+                logger.error(f"Guardrail check failed: {e}")
+                
+            return pred
         else:
-             prediction = self.fast_prog(context=context, question=question)
-             dspy.Suggest(
-                 len(prediction.answer) < 500,
-                 "The answer is too long. Summarize it to be under 500 characters.")
-             dspy.Suggest(
-              "context" in prediction.answer.lower() or "document" in prediction.answer.lower() or len(context) > 0,
-              "The answer must be derived from the context provided."
-              )
-             return prediction
+            return self.fast_prog(context=context, question=question, chat_history=history_str)

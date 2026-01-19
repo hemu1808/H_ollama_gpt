@@ -5,7 +5,7 @@ import os
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 import uvicorn
@@ -15,11 +15,14 @@ from config import settings
 from rag_service import RAGService
 from schemas import QueryInput 
 from document_processor import DocumentProcessor
+from api.middleware.rate_limiter import RateLimiter
 # import dspy_module # Keeping your import
 
 # Setup Logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+rate_limiter = RateLimiter(redis_url=settings.REDIS_URL, limit=10, window=60)
 
 class AppState:
     rag: RAGService = None
@@ -56,7 +59,7 @@ async def query_endpoint(input_data: QueryInput):
         raise HTTPException(status_code=503, detail="System not ready")
     return await state.rag.answer_question(input_data)
 
-@app.post("/query/stream")
+@app.post("/query/stream", dependencies=[Depends(rate_limiter)])
 async def query_stream_endpoint(input_data: QueryInput):
     if not state.rag:
         raise HTTPException(status_code=503, detail="System not ready")

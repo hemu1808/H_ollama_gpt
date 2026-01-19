@@ -10,7 +10,7 @@ def main():
     
     if args.mode in ["api", "all"]:
         uvicorn.run(
-            "api.main:app",
+            "api_main:app",
             host=settings.API_HOST,
             port=settings.API_PORT,
             workers=settings.WORKERS,

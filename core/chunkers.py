@@ -37,17 +37,14 @@ class SemanticChunker:
                     })
         return sentences
     
-    async def find_breakpoints(
-        self,
-        embeddings: List[List[float]],
-        threshold: float = 0.7
-    ) -> List[int]:
+    async def find_breakpoints(self, embeddings: List[List[float]], threshold: float = 0.7) -> List[int]:
         """Find indices where semantic similarity drops"""
+        if not embeddings: return []
         breakpoints = [0]
         
         for i in range(1, len(embeddings)):
             similarity = np.dot(embeddings[i-1], embeddings[i]) / (
-                np.linalg.norm(embeddings[i-1]) * np.linalg.norm(embeddings[i])
+                np.linalg.norm(embeddings[i-1]) * np.linalg.norm(embeddings[i] * 1e-10)
             )
             if similarity < threshold:
                 breakpoints.append(i)
@@ -64,10 +61,7 @@ class SemanticChunker:
             return await self._dynamic_embed_fn(text)
         return [0.0] * 384 # Fallback mock
 
-    async def chunk_semantically(
-        self,
-        documents: List[Document]
-    ) -> List[Document]:
+    async def chunk_semantically(self, documents: List[Document]) -> List[Document]:
         """Create semantically coherent chunks"""
         if not self.embedding_cache:
             # Fallback if cache/embeddings aren't configured
@@ -119,11 +113,8 @@ class ParentChildChunker:
             chunk_size=settings.CHUNK_SIZE,
             chunk_overlap=settings.CHUNK_OVERLAP
         )
-    
-    async def chunk_with_parent_child(
-        self,
-        documents: List[Document]
-    ) -> List[Document]:
+
+    async def chunk_with_parent_child(self, documents: List[Document]) -> List[Document]:
         """Create parent-child chunks with semantic boundaries"""
         all_chunks = []
         
