@@ -60,7 +60,7 @@ class DocumentProcessor:
         else:
             logger.warning("sentence-transformers not installed. Semantic chunking will be degraded.")
 
-    async def process_upload_stream(self, file_content: bytes, filename: str):
+    async def process_upload_stream(self, file_path: str, filename: str):
         """
         Generator that yields status updates while processing
         """
@@ -69,7 +69,7 @@ class DocumentProcessor:
         
         # Offload CPU-heavy PDF parsing
         loop = asyncio.get_running_loop()
-        text = await loop.run_in_executor(None, self._extract_text_from_pdf_bytes, file_content)
+        text = await loop.run_in_executor(None, self._extract_text_from_pdf, file_path)
         
         if not text:
             raise ValueError("Could not extract text from PDF.")
@@ -112,18 +112,17 @@ class DocumentProcessor:
         logger.info(f"Successfully saved {len(chunks)} chunks from {filename}")
         yield "done"
 
-    def _extract_text_from_pdf_bytes(self, file_content: bytes) -> str:
-        import io
+    def _extract_text_from_pdf(self, file_path: str) -> str:
         if not pypdf: return ""
         try:
-            pdf_file = io.BytesIO(file_content)
-            reader = pypdf.PdfReader(pdf_file)
-            text = []
-            for page in reader.pages:
-                extracted = page.extract_text()
-                if extracted:
-                    text.append(extracted)
-            return "\n".join(text)
+            with open(file_path, "rb") as pdf_file:
+                reader = pypdf.PdfReader(pdf_file)
+                text = []
+                for page in reader.pages:
+                    extracted = page.extract_text()
+                    if extracted:
+                        text.append(extracted)
+                return "\n".join(text)
         except Exception as e:
             logger.error(f"Error reading PDF: {e}")
             return ""

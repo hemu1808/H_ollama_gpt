@@ -41,8 +41,12 @@ class RAGService:
         self.cross_encoder = None
         if HAS_CROSS_ENCODER:
             logger.info("Loading Cross-Encoder for precision re-ranking...")
-            # 'ms-marco-MiniLM-L-6-v2' is fast and effective for re-ranking
-            self.cross_encoder = CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')
+            try:
+                # 'ms-marco-MiniLM-L-6-v2' is fast and effective for re-ranking
+                self.cross_encoder = CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')
+            except Exception as e:
+                logger.error(f"Failed to load CrossEncoder: {e}")
+                self.cross_encoder = None
         else:
             logger.warning("CrossEncoder not found. Install sentence-transformers for better accuracy.")
 
@@ -154,8 +158,10 @@ class RAGService:
             # 2. Hybrid Retrieval (Fetch 3x candidates to allow effective filtering)
             search_k = input_data.top_k * 20
             
+            loop = asyncio.get_running_loop()
+            
             # A. Vector Search
-            results = self.collection.query(query_texts=[search_query], n_results=search_k)
+            results = await loop.run_in_executor(None, lambda: self.collection.query(query_texts=[search_query], n_results=search_k))
             vector_cands = []
             if results['ids']:
                 for id, doc in zip(results['ids'][0], results['documents'][0]):
@@ -174,7 +180,7 @@ class RAGService:
             final_docs = []
             if top_ids:
                 # Batch fetch is faster than one-by-one
-                fetch_res = self.collection.get(ids=top_ids)
+                fetch_res = await loop.run_in_executor(None, lambda: self.collection.get(ids=top_ids))
                 # Map IDs to Documents
                 doc_map = {id: doc for id, doc in zip(fetch_res['ids'], fetch_res['documents'])}
                 # Preserve RRF order
@@ -186,7 +192,7 @@ class RAGService:
             if self.cross_encoder and final_docs:
                 yield f"data: {json.dumps({'type': 'status', 'content': 'Re-ranking results...'})}\n\n"
                 pairs = [[search_query, doc] for doc in final_docs]
-                scores = self.cross_encoder.predict(pairs)
+                scores = await loop.run_in_executor(None, lambda: self.cross_encoder.predict(pairs))
                 scored_docs = sorted(zip(final_docs, scores), key=lambda x: x[1], reverse=True)
                 filtered_docs = [doc for doc, score in scored_docs if score > -10.0]
                 if not filtered_docs and final_docs:
@@ -210,7 +216,7 @@ class RAGService:
                         history_str=history_str if 'history_str' in locals() else "",
                         mode=input_data.mode
                     )
-                prediction = safe_generate()
+                prediction = await loop.run_in_executor(None, safe_generate)
                 answer = prediction.answer
                 thoughts = getattr(prediction, 'rationale', None)
             except CircuitBreakerOpenException:

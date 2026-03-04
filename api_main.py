@@ -77,26 +77,23 @@ async def get_documents():
 # --- MODIFIED UPLOAD ENDPOINT FOR STREAMING STATUS ---
 @app.post("/documents/upload")
 async def upload_document(file: UploadFile = File(...)):
-    # 1. Read file into memory immediately so we don't block the stream logic
+    filename = file.filename
+    # 1. Save file to disk in chunks instead of memory to prevent RAM spikes
+    os.makedirs("temp_uploads", exist_ok=True)
+    temp_path = os.path.join("temp_uploads", filename)
     try:
-        content = await file.read()
-        filename = file.filename
+        with open(temp_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Error reading file: {e}")
+        raise HTTPException(status_code=400, detail=f"Error saving file to disk: {e}")
 
     # 2. Define the generator that yields status updates
     async def event_generator():
-        temp_path = f"temp_{filename}"
         try:
             processor = DocumentProcessor()
-            
-            # This calls the NEW stream method in your DocumentProcessor
-            # Ensure your DocumentProcessor has 'process_upload_stream' implemented as shown previously
-            async for step in processor.process_upload_stream(content, filename):
-                # Send Server-Sent Event (SSE) format
-                # Format: data: {"step": "clean"}\n\n
+            # Pass the physical file path instead of raw bytes
+            async for step in processor.process_upload_stream(temp_path, filename):
                 yield f"data: {json.dumps({'step': step})}\n\n"
-                
         except Exception as e:
             logger.error(f"Upload stream error: {e}")
             yield f"data: {json.dumps({'error': str(e)})}\n\n"

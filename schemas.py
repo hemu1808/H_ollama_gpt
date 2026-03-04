@@ -1,4 +1,4 @@
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, field_validator
 from typing import List, Optional, Literal
 import re
 
@@ -14,8 +14,9 @@ class QueryInput(BaseModel):
     chat_history: List[ChatMessage] = []
     
     
-    @validator('question')
-    def validate_question(cls, v):
+    @field_validator('question')
+    @classmethod
+    def validate_question(cls, v: str) -> str:
         if not v or len(v.strip()) < 2: 
             raise ValueError("Question too short")
         return re.sub(r'[<>]', '', v).strip()

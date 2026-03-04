@@ -26,3 +26,7 @@ opentelemetry-instrumentation-fastapi
 prometheus-client
 tenacity 
 pypdf
+langchain-core
+langchain
+langchain-community 
+langchain-text-splitters
