@@ -58,6 +58,10 @@ class FileLock:
 class PersistedBM25Retriever:
     def __init__(self, index_path: str = "./data/bm25_index.pkl"):
         self.index_path = index_path
+        
+        # --- ADD THIS LINE: Ensure directory exists before creating locks ---
+        os.makedirs(os.path.dirname(self.index_path), exist_ok=True)
+        
         self.k1 = getattr(settings, 'BM25_K1', 1.5)
         self.b = getattr(settings, 'BM25_B', 0.75)
         self.corpus = []
@@ -145,6 +149,55 @@ class PersistedBM25Retriever:
                     self.bm25 = BM25Okapi(self.corpus, k1=self.k1, b=self.b)
         except Exception as e:
             logger.error(f"Failed to load BM25 index: {e}")
+
+class ElasticsearchHybridRetriever:
+    """
+    Connects to Elasticsearch for BM25 search combined with fast QJL signature pre-filtering.
+    If BM25 is high AND QJL Hamming distance is low, it highly prioritizes the chunk.
+    """
+    def __init__(self, es_url: str = "http://localhost:9200", index_name: str = "documents"):
+        self.es_url = es_url
+        self.index_name = index_name
+        self.qjl = None
+        try:
+            from core.quantization import QJLRetriever
+            self.qjl = QJLRetriever(dim=768)
+        except ImportError:
+            pass
+            
+    def store_document(self, doc_id: str, text: str, qjl_hex: str):
+        """Stores document and its QJL hash in ES"""
+        # Scaffold logic for Phase 3 integration:
+        # es.index(index=self.index_name, id=doc_id, document={"text": text, "qjl_signature": qjl_hex})
+        pass
+        
+    def retrieve(self, query: str, query_qjl_hex: str, top_k: int = 10, threshold: float = 0.6) -> List[Tuple[str, float]]:
+        """
+        1. Query ES for BM25 top candidates
+        2. Filter them locally via QJL Hamming Distance (Rapid 1-bit scan)
+        """
+        # Mocking ES Response for architecture design requirement
+        mock_es_results = [] # [(doc_id, bm25_score_normalized, qjl_hex)]
+        
+        final_scores = {}
+        for doc_id, bm25_score, qjl_hex in mock_es_results:
+            if not self.qjl or not qjl_hex:
+                final_scores[doc_id] = bm25_score
+                continue
+                
+            qjl_bytes = bytes.fromhex(qjl_hex)
+            query_bytes = bytes.fromhex(query_qjl_hex)
+            
+            # Fast Hamming comparison
+            sim = self.qjl.estimate_similarity(query_bytes, qjl_bytes)
+            
+            # Hybrid Boosting: If BM25 high AND QJL match
+            if sim > threshold:
+                final_scores[doc_id] = bm25_score * 1.5 + sim  # Boost priority
+            else:
+                final_scores[doc_id] = bm25_score * 0.5        # Penalize priority
+                
+        return sorted(final_scores.items(), key=lambda x: x[1], reverse=True)[:top_k]
 
 def reciprocal_rank_fusion(
     vector_results: List[Tuple[str, float]], 

@@ -1,5 +1,5 @@
 from pydantic import BaseModel, validator
-from typing import Optional
+from typing import Optional, List, Any
 import re
 import logging
 from config import settings
@@ -21,6 +21,10 @@ class QueryInput(BaseModel):
     use_hybrid: bool = settings.ENABLE_HYBRID_SEARCH
     use_multi_query: bool = settings.ENABLE_MULTI_QUERY
     use_query_expansion: bool = settings.ENABLE_QUERY_EXPANSION
+    
+    # --- ADD THESE TWO LINES ---
+    chat_history: Optional[List[Any]] = [] 
+    mode: Optional[str] = "default"
     
     @validator('question')
     def validate_question(cls, v):

@@ -9,7 +9,7 @@ class CircuitBreakerOpenException(Exception):
 class CircuitBreaker:
     def __init__(self, failure_threshold: int = 5, recovery_timeout: int = 60):
         self.failure_threshold = failure_threshold
-        self.recovery_timeout = recovery_timeout
+        self.base_timeout = recovery_timeout
         self.failures = 0
         self.last_failure_time = 0
         self.state = "CLOSED"  # CLOSED, OPEN, HALF-OPEN
@@ -20,7 +20,9 @@ class CircuitBreaker:
         def wrapper(*args, **kwargs) -> Any:
             with self.lock:
                 if self.state == "OPEN":
-                    if time.time() - self.last_failure_time > self.recovery_timeout:
+                    # Exponential Backoff Calculation
+                    current_timeout = min(300, self.base_timeout * (2 ** (self.failures - self.failure_threshold)))
+                    if time.time() - self.last_failure_time > current_timeout:
                         self.state = "HALF-OPEN"
                     else:
                         raise CircuitBreakerOpenException("Circuit is open. Request blocked.")

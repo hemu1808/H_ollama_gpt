@@ -1,0 +1,41 @@
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Git
+.git/
+
+# Local environment variables
+.env
+
+# Local data and models (adjust folder names based on your project)
+chroma_data/
+models/
+*.db
+
+node_modules/
+
+# Block environments and dependencies everywhere
+**/.venv/
+**/node_modules/
+**/__pycache__/
+**/.git/
+
+# Block all heavy data folders in the root
+data/
+chroma_db/
+dataset/
+temp_uploads/
+
+# Block compiled files and logs
+**/*.pyc
+**/*.log
+frontend/build/
+frontend/dist/

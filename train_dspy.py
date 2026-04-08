@@ -1,104 +1,118 @@
 import dspy
-from dspy.teleprompt import BootstrapFewShot
-from dspy_module import RAGModule
+from dspy.teleprompt import BootstrapFewShotWithRandomSearch
+import logging
+
+# Import your existing module (make sure to delete the old JSON first so it loads raw!)
+from dspy_module import RAGModule 
+
+# Set up DSPy LLM connection (use the same one from your dspy_module)
 from config import settings
-import os
-import random
+llm = dspy.LM(
+    model='ollama/' + settings.OLLAMA_LLM_MODEL, 
+    api_base=settings.OLLAMA_URL,
+    api_key="ollama",
+    temperature=0.1
+)
+dspy.configure(lm=llm)
 
-# --- 1. SETUP ---
-lm = dspy.LM('ollama/' + settings.OLLAMA_LLM_MODEL, api_base=settings.OLLAMA_URL)
-dspy.configure(lm=lm)
+class QuantizedRAGSignature(dspy.Signature):
+    """Signature optimized for 3-bit quantized context"""
+    context = dspy.InputField(desc="Compressed polar-quantized document chunks")
+    question = dspy.InputField()
+    answer = dspy.OutputField()
 
-def main():
-    print("Starting DSPy Optimization Pipeline...")
-
-    # --- 2. DATASET (Scalable) ---
-    # FOR HUGE DATA: Load this from a JSON file instead of hardcoding!
-    # import json
-    # with open("huge_training_data.json") as f:
-    #     raw_data = json.load(f)
-    #     trainset = [dspy.Example(context=d['c'], question=d['q'], answer=d['a']).with_inputs('context', 'question') for d in raw_data]
-
-    # For now, here is a Robust "Gold Standard" set (10 examples)
-    # These teach the model NOT to be a dictionary.
-    raw_examples = [
-        {
-            "context": "Hemanth built a Distributed Container Orchestration Engine in Go using Docker API.",
-            "question": "What is an orchestration engine?",
-            "answer": "Hemanth developed a **Distributed Container Orchestration Engine** using **Go** and the **Docker API**, focusing on scheduling and node management."
-        },
-        {
-            "context": "The system detects node failures in 30ms using a gRPC heartbeat mechanism.",
-            "question": "How does it handle failures?",
-            "answer": "The system implements a **gRPC heartbeat mechanism** that detects node failures within **30ms** to trigger rescheduling."
-        },
-        {
-            "context": "Hemanth has 2 years of experience. He worked at StartupX.",
-            "question": "Experience summary",
-            "answer": "Hemanth has **2 years** of production experience, notably working at **StartupX**."
-        },
-        {
-            "context": "The API listens on port 8000. It uses ChromaDB for vector storage.",
-            "question": "What database is used?",
-            "answer": "The system utilizes **ChromaDB** for vector storage."
-        },
-        {
-            "context": "This project uses Python 3.11 and FastAPI.",
-            "question": "Language used?",
-            "answer": "The project is built using **Python 3.11** and **FastAPI**."
-        },
-        # ... Add 100 more examples here for "Huge Data" training ...
-    ]
-
-    # Convert to DSPy format
-    trainset = [dspy.Example(
-        context=e['context'], 
-        question=e['question'], 
-        answer=e['answer']
-    ).with_inputs('context', 'question') for e in raw_examples]
-
-    print(f"Loaded {len(trainset)} training examples.")
-
-    # --- 3. METRIC (The Judge) ---
-    # We use a Semantic Match metric. 
-    # It checks if the semantic meaning of the prediction matches the gold answer.
-    def validate_answer(example, pred, trace=None):
-        # 1. Sanity Check: Don't allow empty answers
-        if len(pred.answer) < 5: return False
-        
-        # 2. Key Phrase Matching (Robust)
-        # We strip markdown for comparison
-        gold_clean = example.answer.replace("**", "").lower()
-        pred_clean = pred.answer.lower()
-        
-        # If the prediction contains the core keywords from the gold answer, it's good.
-        # This prevents "exact match" failures on minor wording differences.
-        # For huge data, you can use dspy.evaluate.SemanticF1 if available.
-        return dspy.evaluate.answer_passage_match(example, pred)
-
-    # --- 4. COMPILE (TRAIN) ---
-    print("Compiling (Optimizing) the RAG Module...")
+# --- 1. THE BALANCED DATASET ---
+# We define specific inputs and the exact output we expect the LLM to generate.
+trainset = [
+    # Category 1: Portfolio & Personal Context
+    dspy.Example(
+        context="Hemanth built HGPT, a full-stack RAG application using Python and FastAPI.",
+        context_chunk="Hemanth built HGPT, a full-stack RAG application using Python and FastAPI.",
+        is_relevant="Yes",
+        question="What did Hemanth build?",
+        answer="Hemanth built HGPT, a RAG application using Python and FastAPI."
+    ).with_inputs("context", "question", "context_chunk"),
     
-    # BootstrapFewShot is perfect for 10-50 examples.
-    # If you have 500+ examples, consider using 'BootstrapFewShotWithRandomSearch'
-    teleprompter = BootstrapFewShot(
+    dspy.Example(
+        context="Hemanth is actively looking for Software Engineer roles as of March 2026.",
+        context_chunk="Hemanth is actively looking for Software Engineer roles as of March 2026.",
+        is_relevant="Yes",
+        question="Is the author looking for a job?",
+        answer="Yes, Hemanth is actively looking for Software Engineer roles."
+    ).with_inputs("context", "question", "context_chunk"),
+
+    # Category 2: General Technical Knowledge (Fixes the KNN issue)
+    dspy.Example(
+        context="The K-Nearest Neighbors (KNN) algorithm is a simple, supervised machine learning algorithm that can be used to solve both classification and regression problems.",
+        context_chunk="The K-Nearest Neighbors (KNN) algorithm is a simple, supervised machine learning algorithm.",
+        is_relevant="Yes",
+        question="What is knn?",
+        answer="KNN is a supervised machine learning algorithm used for classification and regression tasks."
+    ).with_inputs("context", "question", "context_chunk"),
+
+    dspy.Example(
+        context="ChromaDB is an open-source vector database designed for AI applications.",
+        context_chunk="ChromaDB is an open-source vector database designed for AI applications.",
+        is_relevant="Yes",
+        question="Explain ChromaDB.",
+        answer="ChromaDB is an open-source vector database used for AI applications."
+    ).with_inputs("context", "question", "context_chunk"),
+
+    # Category 3: The "I Don't Know" Fallbacks (Prevents hallucinations)
+    dspy.Example(
+        context="The project uses Python 3.11 and Docker for containerization.",
+        context_chunk="The project uses Python 3.11 and Docker for containerization.",
+        is_relevant="No",
+        question="What is the author's favorite food?",
+        answer="I could not find relevant information in the uploaded documents."
+    ).with_inputs("context", "question", "context_chunk"),
+
+    dspy.Example(
+        context="The KNN algorithm relies on distance metrics like Euclidean distance.",
+        context_chunk="The KNN algorithm relies on distance metrics like Euclidean distance.",
+        is_relevant="No",
+        question="How did Hemanth use KNN?",
+        answer="I could not find relevant information in the uploaded documents."
+    ).with_inputs("context", "question", "context_chunk")
+]
+
+# --- 2. VALIDATION METRIC ---
+def validate_answer(example, pred, trace=None):
+    """
+    Grades the LLM's practice answers during compilation.
+    """
+    # If we expect a refusal, the prediction MUST contain the refusal string
+    if "I could not find relevant information" in example.answer:
+        return "could not find" in pred.answer.lower()
+    
+    # Otherwise, check if the core concepts from the expected answer appear in the prediction
+    expected_words = set(example.answer.lower().split())
+    pred_words = set(pred.answer.lower().split())
+    
+    # Calculate word overlap (simple but effective for this scale)
+    overlap = len(expected_words.intersection(pred_words)) / len(expected_words)
+    return overlap > 0.4  # Pass if 40% of the key vocabulary is present
+
+# --- 3. COMPILATION ---
+def compile_rag():
+    print("Loading unoptimized RAG Module...")
+    student = RAGModule()
+    
+    print("Starting DSPy compilation. The LLM is practicing on the trainset...")
+    optimizer = BootstrapFewShotWithRandomSearch(
         metric=validate_answer,
-        max_bootstrapped_demos=4,  # Use up to 4 examples in the prompt context
-        max_labeled_demos=4        # Use 4 labelled examples
+        max_bootstrapped_demos=3, # How many examples to inject into the final prompt
+        max_labeled_demos=3,
+        num_candidate_programs=5,
+        num_threads=2
     )
-
-    rag = RAGModule()
     
-    # This runs the training loop
-    compiled_rag = teleprompter.compile(rag, trainset=trainset)
-
-    # --- 5. SAVE ---
+    compiled_rag = optimizer.compile(student, trainset=trainset)
+    
+    # Save the new, balanced JSON
     save_path = "./data/compiled_rag.json"
-    os.makedirs("./data", exist_ok=True)
     compiled_rag.save(save_path)
-    
-    print(f"✅ Optimization Complete! Saved to {save_path}")
-    print("👉 Now restart your API. The model is now trained to mimic your examples.")
+    print(f"Compilation complete! Your balanced model is saved to {save_path}")
 
 if __name__ == "__main__":
-    main()
+    compile_rag()

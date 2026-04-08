@@ -30,3 +30,11 @@ langchain-core
 langchain
 langchain-community 
 langchain-text-splitters
+# Tools & Graph
+wikipedia
+duckduckgo-search
+neo4j
+# Evaluation
+ragas
+deepeval
+nest_asyncio

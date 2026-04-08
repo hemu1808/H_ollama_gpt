@@ -1,0 +1,13 @@
+Traceback (most recent call last):
+  File "C:\Users\hemu1\OneDrive\Desktop\H_ollama_gpt\debug.py", line 5, in <module>
+    r = RAGService()
+        ^^^^^^^^^^^^
+  File "C:\Users\hemu1\OneDrive\Desktop\H_ollama_gpt\rag_service.py", line 42, in __init__
+    raw_collection = self.chroma_client.get_or_create_collection(
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\hemu1\OneDrive\Desktop\H_ollama_gpt\.venv\Lib\site-packages\chromadb\api\client.py", line 332, in get_or_create_collection
+    validate_embedding_function_conflict_on_get(
+  File "C:\Users\hemu1\OneDrive\Desktop\H_ollama_gpt\.venv\Lib\site-packages\chromadb\api\collection_configuration.py", line 791, in validate_embedding_function_conflict_on_get
+    embedding_function.name() != "default"
+    ^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: 'str' object is not callable

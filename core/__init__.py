@@ -1,4 +1,4 @@
-from .caching import RedisCache, EmbeddingCache
+from .cache.quantized_redis import RedisCache, EmbeddingCache
 from .chunkers import SemanticChunker, ParentChildChunker
 from .retrievers import PersistedBM25Retriever, reciprocal_rank_fusion
 from .security import SecurityValidator

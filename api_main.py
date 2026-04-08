@@ -35,6 +35,8 @@ async def lifespan(app: FastAPI):
     try:
         state.rag = RAGService()
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         logger.error(f"Failed to initialize RAG Service: {e}")
     yield
     print("Shutting down...")

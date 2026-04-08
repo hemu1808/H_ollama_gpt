@@ -8,7 +8,7 @@ import re
 
 # --- FIXED IMPORT ---
 # We use the full package path to avoid import errors
-from .caching import EmbeddingCache
+from .cache.quantized_redis import EmbeddingCache
 from .retrievers import PersistedBM25Retriever 
 
 class SemanticChunker:
@@ -43,9 +43,17 @@ class SemanticChunker:
         breakpoints = [0]
         
         for i in range(1, len(embeddings)):
-            similarity = np.dot(embeddings[i-1], embeddings[i]) / (
-                np.linalg.norm(embeddings[i-1]) * np.linalg.norm(embeddings[i] * 1e-10)
-            )
+            v1 = np.array(embeddings[i-1])
+            v2 = np.array(embeddings[i])
+            
+            norm_v1 = np.linalg.norm(v1)
+            norm_v2 = np.linalg.norm(v2)
+            
+            if norm_v1 == 0 or norm_v2 == 0:
+                similarity = 0.0
+            else:
+                similarity = np.dot(v1, v2) / (norm_v1 * norm_v2)
+                
             if similarity < threshold:
                 breakpoints.append(i)
         

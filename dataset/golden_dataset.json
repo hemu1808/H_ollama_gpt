@@ -1,0 +1,26 @@
+{
+  "question": [
+    "What did Hemanth build?",
+    "Is the author looking for a job?",
+    "What is knn?",
+    "Explain ChromaDB."
+  ],
+  "answer": [
+    "Hemanth built HGPT, a RAG application using Python and FastAPI.",
+    "Yes, Hemanth is actively looking for Software Engineer roles.",
+    "KNN is a supervised machine learning algorithm used for classification and regression tasks.",
+    "ChromaDB is an open-source vector database used for AI applications."
+  ],
+  "contexts": [
+    ["Hemanth built HGPT, a full-stack RAG application using Python and FastAPI."],
+    ["Hemanth is actively looking for Software Engineer roles as of March 2026."],
+    ["The K-Nearest Neighbors (KNN) algorithm is a simple, supervised machine learning algorithm that can be used to solve both classification and regression problems."],
+    ["ChromaDB is an open-source vector database designed for AI applications."]
+  ],
+  "ground_truth": [
+    "Hemanth built HGPT, a RAG application using Python and FastAPI.",
+    "Yes, Hemanth is actively looking for Software Engineer roles.",
+    "KNN is a supervised machine learning algorithm used for classification and regression tasks.",
+    "ChromaDB is an open-source vector database used for AI applications."
+  ]
+}

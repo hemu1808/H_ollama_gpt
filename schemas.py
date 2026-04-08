@@ -10,7 +10,7 @@ class ChatMessage(BaseModel):
 class QueryInput(BaseModel):
     question: str
     top_k: int = 4
-    mode: Literal["fast", "deep"] = "deep"
+    mode: Literal["fast", "deep", "agentic", "graph", "adaptive"] = "adaptive"
     chat_history: List[ChatMessage] = []
     
     

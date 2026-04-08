@@ -10,7 +10,7 @@ from langchain_core.documents import Document
 from config import settings
 from core.retrievers import PersistedBM25Retriever
 from core.chunkers import SemanticChunker # <--- CONNECTED NOW
-from core.caching import EmbeddingCache   # <--- CONNECTED NOW
+from core.cache.quantized_redis import EmbeddingCache   # <--- CONNECTED NOW
 
 try:
     from sentence_transformers import SentenceTransformer
@@ -30,7 +30,17 @@ class DocumentProcessor:
     def __init__(self):
         # 1. Initialize Vector DB
         self.chroma_client = chromadb.PersistentClient(path=settings.CHROMADB_PATH)
-        self.collection = self.chroma_client.get_or_create_collection(name=settings.COLLECTION_NAME)
+        from services.quantized_chroma import QuantizedChromaAdapter, OllamaEmbeddingFunction
+        
+        ef = OllamaEmbeddingFunction(
+            model_name=getattr(settings, "OLLAMA_EMBEDDING_MODEL", "nomic-embed-text"),
+            base_url=getattr(settings, "OLLAMA_URL", "http://localhost:11434")
+        )
+        raw_collection = self.chroma_client.get_or_create_collection(
+            name=settings.COLLECTION_NAME
+        )
+        raw_collection._embedding_function = ef
+        self.collection = QuantizedChromaAdapter(raw_collection, dim=768)
         
         # 2. Initialize Keyword DB
         self.bm25_retriever = PersistedBM25Retriever()
@@ -48,15 +58,16 @@ class DocumentProcessor:
             
             # --- THE FIX: Inject real embedding function into Chunker ---
             async def real_embed_fn(text: str) -> List[float]:
-                # Offload to thread to prevent blocking async loop
                 loop = asyncio.get_running_loop()
-                return await loop.run_in_executor(
-                    None, 
-                    lambda: self.embed_model.encode(text).tolist()
-                )
+                return await loop.run_in_executor(None, lambda: self.embed_model.encode(text).tolist())
+                
+            async def real_embed_batch_fn(texts: List[str]) -> List[List[float]]:
+                loop = asyncio.get_running_loop()
+                return await loop.run_in_executor(None, lambda: self.embed_model.encode(texts).tolist())
             
             # Patch the chunker's method dynamically
             self.chunker._dynamic_embed_fn = real_embed_fn
+            self.chunker._dynamic_embed_batch_fn = real_embed_batch_fn
         else:
             logger.warning("sentence-transformers not installed. Semantic chunking will be degraded.")
 
@@ -97,6 +108,20 @@ class DocumentProcessor:
         if not chunks:
             raise ValueError("No text chunks generated.")
         
+        # --- PHASE 8: GRAPH RAG EXTRACTION ---
+        if getattr(settings, "ENABLE_GRAPH_RAG", False):
+            # We must offload this to Celery to prevent blocking the upload event loop.
+            try:
+                from workers.celery_worker import celery_app
+                # Dispatch async task, pass just the data
+                celery_app.send_task("extract_graph_entities_task", args=[chunks[:10], filename])
+                logger.info("Successfully offloaded Graph extraction to Celery.")
+            except ImportError:
+                logger.warning("workers module not found")
+            except Exception as e:
+                logger.warning(f"Could not dispatch GraphRAG task: {e}")
+        # ----------------------------
+
         yield "index"
         # 1. Upsert to Chroma
         self.collection.upsert(
@@ -106,10 +131,18 @@ class DocumentProcessor:
         )
 
         # 2. Update BM25 (Atomic Lock handled inside class)
-        loop = asyncio.get_running_loop()
-        await loop.run_in_executor(None, self.bm25_retriever.index_documents, chunks, ids)
-        
-        logger.info(f"Successfully saved {len(chunks)} chunks from {filename}")
+        try:
+            loop = asyncio.get_running_loop()
+            await loop.run_in_executor(None, self.bm25_retriever.index_documents, chunks, ids)
+            logger.info(f"Successfully saved {len(chunks)} chunks from {filename}")
+        except Exception as e:
+            logger.error(f"Failed to update BM25 index: {e}. Rolling back ChromaDB insert.")
+            try:
+                self.collection.delete(ids=ids)
+            except Exception as rollback_err:
+                logger.error(f"Catastrophic failure: Rollback failed for {filename}: {rollback_err}")
+            raise RuntimeError(f"Indexing failed: {e}")
+
         yield "done"
 
     def _extract_text_from_pdf(self, file_path: str) -> str:

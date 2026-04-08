@@ -58,6 +58,12 @@ class Settings(BaseSettings):
     CONTEXT_COMPRESSION_RATIO: float = 0.5
     MAX_CONTEXT_LENGTH: int = 8192
     
+    # Advanced Quantization & vLLM Compression
+    QUANTIZATION_BITS: int = 3
+    USE_TURBOQUANT: bool = True
+    KV_CACHE_QUANT: bool = True
+    LEGACY_FLOAT32_MODE: bool = False
+    
     # Caching
     REDIS_URL: str = "redis://localhost:6379"
     CACHE_TTL: int = 3600
@@ -82,14 +88,14 @@ class Settings(BaseSettings):
     CLIP_MODEL: str = "clip-ViT-B-32"
     
     # Graph RAG
-    ENABLE_GRAPH_RAG: bool = False
+    ENABLE_GRAPH_RAG: bool = True
     NEO4J_URI: Optional[str] = None
     NEO4J_USER: Optional[str] = None
     NEO4J_PASSWORD: Optional[str] = None
     
     # --- FIXED: Modern Pydantic V2 Config ---
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file="rag.env",
         env_file_encoding="utf-8",
         extra="ignore"  # Prevents crashes if your .env has extra keys
     )
